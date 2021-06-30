@@ -88,7 +88,6 @@ void MX_TIM1_Init(void)
   {
     Error_Handler();
   }
-  sConfigOC.Pulse = 5;
   if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
   {
     Error_Handler();
@@ -133,7 +132,7 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* tim_baseHandle)
     hdma_tim1_up.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
     hdma_tim1_up.Init.Mode = DMA_CIRCULAR;
     hdma_tim1_up.Init.Priority = DMA_PRIORITY_VERY_HIGH;
-    hdma_tim1_up.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+    hdma_tim1_up.Init.FIFOMode = DMA_FIFOMODE_ENABLE;
     if (HAL_DMA_Init(&hdma_tim1_up) != HAL_OK)
     {
       Error_Handler();
