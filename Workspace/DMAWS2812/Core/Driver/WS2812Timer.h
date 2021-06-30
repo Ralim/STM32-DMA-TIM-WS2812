@@ -29,17 +29,19 @@ public:
 		HAL_DMA_Start_IT(hdma, (uint32_t) DMAPrepBuffer,
 				(uint32_t) &(htim->Instance->DMAR), timerChannels * 10);
 		memset(rawrgb, 0, sizeof(rawrgb));
-		rawrgb[0][0] = 0xAA;
-		rawrgb[1][1] = 0xAA;
-		rawrgb[2][2] = 0xAA;
+		for (int c = 0; c < 3; c++)
+			for (int i = 0; i < numLeds * 3; i++)
+				rawrgb[c][i] = i << 2 | c;
 		fillSection(DMAPrepBuffer);
 		fillSection(DMAPrepBuffer + timerChannels * 3 * 2 * 8);
 		// ~> Start the Timer running
 		HAL_TIM_Base_Start_IT(htim);
-		HAL_TIM_PWM_Start(htim, TIM_CHANNEL_1);
-		HAL_TIM_PWM_Start(htim, TIM_CHANNEL_2);
-		HAL_TIM_PWM_Start(htim, TIM_CHANNEL_3);
-		HAL_TIM_PWM_Start(htim, TIM_CHANNEL_4);
+		/* Enable the TIM Update DMA request */
+		__HAL_TIM_ENABLE_DMA(htim, TIM_DMA_UPDATE);
+		HAL_TIM_PWM_Start_IT(htim, TIM_CHANNEL_1);
+		HAL_TIM_PWM_Start_IT(htim, TIM_CHANNEL_2);
+		HAL_TIM_PWM_Start_IT(htim, TIM_CHANNEL_3);
+		HAL_TIM_PWM_Start_IT(htim, TIM_CHANNEL_4);
 	}
 	void DMAHalfCompleteCallback() {
 		//When DMA is half Complete
