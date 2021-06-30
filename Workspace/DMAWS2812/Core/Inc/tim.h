@@ -32,6 +32,7 @@ extern "C" {
 /* USER CODE END Includes */
 
 extern TIM_HandleTypeDef htim1;
+extern DMA_HandleTypeDef hdma_tim1_up;
 
 /* USER CODE BEGIN Private defines */
 
