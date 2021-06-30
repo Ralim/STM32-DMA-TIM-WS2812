@@ -68,7 +68,7 @@ private:
 	const int finalState = (numLeds) + 10;
 	uint8_t rawrgb[timerChannels][numLeds * 3];
 	uint16_t DMAPrepBuffer[timerChannels * 3/*RGB*/* 8/*bits*/* 2/*LEDs*/];	// Room for 2 leds, RGB, per channel, 8 bits per channel
-	const uint16_t timingNumbers[2] = { 3, 8 };
+	const uint16_t timingNumbers[2] = { 4, 8 };
 	void fillSection(uint16_t *buffer) {
 		//Fill half a DMA buffer worth
 		if (state >= numLeds) {
