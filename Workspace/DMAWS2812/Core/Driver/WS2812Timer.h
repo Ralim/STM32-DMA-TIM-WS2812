@@ -24,24 +24,24 @@ public:
 	void start() {
 
 		// ~> Setup Timer burst mode length & base address
-		htim->Instance->DCR = (timerChannels) << 8 | 13; // timerChannels number of transfers, with an offset to CCR1 (13)
+		htim->Instance->DCR = (timerChannels - 1) << 8 | 13; // timerChannels number of transfers, with an offset to CCR1 (13)
 		// ~> Prep the dma to point to the dma burst registers
 		HAL_DMA_Start_IT(hdma, (uint32_t) DMAPrepBuffer,
-				(uint32_t) &(htim->Instance->DMAR), timerChannels * 10);
+				(uint32_t) &(htim->Instance->DMAR), timerChannels * 3 * 8 * 2);
 		memset(rawrgb, 0, sizeof(rawrgb));
-		for (int c = 0; c < 3; c++)
-			for (int i = 0; i < numLeds * 3; i++)
-				rawrgb[c][i] = i << 2 | c;
-		fillSection(DMAPrepBuffer);
-		fillSection(DMAPrepBuffer + timerChannels * 3 * 2 * 8);
+		memset(DMAPrepBuffer, 0, sizeof(DMAPrepBuffer));
+		for (int chan = 0; chan < timerChannels; chan++)
+			for (int led = 0; led < numLeds * 3; led++)
+				rawrgb[chan][led] = 0x10;
+		DMACompleteCallback();
+		DMAHalfCompleteCallback();
 		// ~> Start the Timer running
-		HAL_TIM_Base_Start_IT(htim);
 		/* Enable the TIM Update DMA request */
 		__HAL_TIM_ENABLE_DMA(htim, TIM_DMA_UPDATE);
-		HAL_TIM_PWM_Start_IT(htim, TIM_CHANNEL_1);
-		HAL_TIM_PWM_Start_IT(htim, TIM_CHANNEL_2);
-		HAL_TIM_PWM_Start_IT(htim, TIM_CHANNEL_3);
-		HAL_TIM_PWM_Start_IT(htim, TIM_CHANNEL_4);
+		HAL_TIM_PWM_Start(htim, TIM_CHANNEL_1);
+		HAL_TIM_PWM_Start(htim, TIM_CHANNEL_2);
+		HAL_TIM_PWM_Start(htim, TIM_CHANNEL_3);
+		HAL_TIM_PWM_Start(htim, TIM_CHANNEL_4);
 	}
 	void DMAHalfCompleteCallback() {
 		//When DMA is half Complete
@@ -49,7 +49,14 @@ public:
 	}
 	void DMACompleteCallback() {
 		//When DMA Completes
-		fillSection(DMAPrepBuffer + timerChannels * 3 * 2 * 8);
+		fillSection(&DMAPrepBuffer[timerChannels * 3 * 8]);
+	}
+	void setLED(const uint8_t channel, const int led, const uint8_t r,
+			const uint8_t g, const uint8_t b) {
+		rawrgb[channel][(led * 3) + 0] = g;
+		rawrgb[channel][(led * 3) + 1] = r;
+		rawrgb[channel][(led * 3) + 2] = b;
+
 	}
 private:
 	/*
@@ -58,39 +65,34 @@ private:
 	 *  Then we change over to doing the reset pulse at the end to latch
 	 */
 	int state = 0;
-	const int finalState = (numLeds) + 2;
+	const int finalState = (numLeds) + 10;
 	uint8_t rawrgb[timerChannels][numLeds * 3];
-	uint16_t DMAPrepBuffer[timerChannels * 3 * 4 * 8];// Room for 4 leds, RGB, per channel, 8 bits per channel
-	const uint16_t timingNumbers[2] = { 35, 70 };
+	uint16_t DMAPrepBuffer[timerChannels * 3 * 8 * 2];// Room for 2 leds, RGB, per channel, 8 bits per channel
+	const uint16_t timingNumbers[2] = { 3, 8 };
 	void fillSection(uint16_t *buffer) {
 		//Fill half a DMA buffer worth
 		if (state >= numLeds) {
-			HAL_GPIO_WritePin(DEBUG_GPIO_Port, DEBUG_Pin, GPIO_PIN_SET);
-			memset(buffer, 0, 2 * 3 * timerChannels * 8);//2 leds worth of bytes
+			memset(buffer, 0x00, 3 * timerChannels * 8 * 2);//a leds worth of bytes
 		} else {
-			HAL_GPIO_WritePin(DEBUG_GPIO_Port, DEBUG_Pin, GPIO_PIN_RESET);
-			//Buffer is 1,2,3,4,1,2,3,4
+			//Buffer is 1,2,3,4, 1,2,3,4 _bits_
 			//But it is the _bits_ in that order
 			int pos = 0;
-			for (int led = 0; led < 2; led++) {
-				int ledx = led + state; // actual led pos
-				for (int colour = 0; colour < 3; colour++) {
-					ledx *= 3;
-					ledx += colour;
-					for (int bitp = 0; bitp < 8; bitp++) {
-						for (int chan = 0; chan < timerChannels; chan++) {
-							uint8_t c = rawrgb[chan][ledx];
-							//Append the bit for this channel
-							//MSB first
-							uint8_t bit = c >> (7 - bitp) & 0x01;
-							buffer[pos] = timingNumbers[bit];
-							pos++;
-						}
+			int ledx = state * 3; // actual led pos
+			for (int colour = 0; colour < 3; colour++) {
+				ledx += colour;
+				for (int bitp = 0; bitp < 8; bitp++) {
+					for (int chan = 0; chan < timerChannels; chan++) {
+						uint8_t c = rawrgb[chan][ledx];
+						//Append the bit for this channel
+						//MSB first
+						uint8_t bit = (c >> (7 - bitp)) & 0x01;
+						buffer[pos] = timingNumbers[bit];
+						pos++;
 					}
 				}
 			}
 		}
-		state += 2;		//2 leds per update
+		state++;		//2 leds per update
 		state %= finalState;
 	}
 };
