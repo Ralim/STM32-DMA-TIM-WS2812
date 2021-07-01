@@ -30,9 +30,7 @@ public:
 				(uint32_t) &(htim->Instance->DMAR), timerChannels * 3 * 8 * 2);
 		memset(rawrgb, 0, sizeof(rawrgb));
 		memset(DMAPrepBuffer, 0, sizeof(DMAPrepBuffer));
-		for (int chan = 0; chan < timerChannels; chan++)
-			for (int led = 0; led < numLeds * 3; led++)
-				rawrgb[chan][led] = 0x80;
+
 		DMACompleteCallback();
 		DMAHalfCompleteCallback();
 		// ~> Start the Timer running
@@ -53,12 +51,31 @@ public:
 	}
 	void setLED(const uint8_t channel, const int led, const uint8_t r,
 			const uint8_t g, const uint8_t b) {
-		rawrgb[channel][(led * 3) + 0] = g;
-		rawrgb[channel][(led * 3) + 1] = r;
-		rawrgb[channel][(led * 3) + 2] = b;
+		/*
+		 * To reduce send time complexity
+		 * Data is stored in the order of
+		 * 1b0,2b0,3b0,4b0,1b1,2b1 etc
+		 * Channel_bit_bitNumber
+		 */
+		int startingBitPosition = (led * /*NumberOfBitsPerLedBlockOfChannels*/
+		(timerChannels * 3/*BytesPerLed*/* 8/*BitsPerByte*/));
+		startingBitPosition += channel; // Channel offset in for starting bit 0
+		//Expand bits out for ease + flip RGB -> GRB
+		uint32_t totalBits = ((uint32_t) g) << 16 | ((uint32_t) r) << 8
+				| ((uint32_t) b);
+		for (int bitNum = 0; bitNum < 24; bitNum++) {
+			setBit(startingBitPosition, totalBits & (0x01 << (23 - bitNum)));
+			startingBitPosition += timerChannels;
+		}
 
 	}
 private:
+
+	void setBit(int offset, bool value) {
+		rawrgb[offset / 8] &= ~(1 << (offset) % 8);
+		rawrgb[offset / 8] |= value << (offset) % 8;
+	}
+
 	/*
 	 * State is used to track where we are up to in generating the data
 	 *  Steps 0 -> numLeds track which led we are up to generating
@@ -66,7 +83,8 @@ private:
 	 */
 	int state = 0;
 	const int finalState = (numLeds) + 10;
-	uint8_t rawrgb[timerChannels][numLeds * 3];
+	const int bytesPerLEDChunk = 3/*Bytes*/* timerChannels;
+	uint8_t rawrgb[(timerChannels * numLeds * 3) / 4];
 	uint16_t DMAPrepBuffer[timerChannels * 3/*RGB*/* 8/*bits*/* 2/*LEDs*/];	// Room for 2 leds, RGB, per channel, 8 bits per channel
 	const uint16_t timingNumbers[2] = { 4, 8 };
 	void fillSection(uint16_t *buffer) {
@@ -77,20 +95,17 @@ private:
 		} else {
 			//Buffer is 1,2,3,4, 1,2,3,4 _bits_
 			//But it is the _bits_ in that order
-			int bufferIndex = 0;
-			for (int colour = 0; colour < 3; colour++) {
-				int ledx = (state * 3) + colour; // actual led pos
-				for (int bitPosition = 0; bitPosition < 8; bitPosition++) {
-					for (int channel = 0; channel < timerChannels; channel++) {
-						uint8_t rawByte = rawrgb[channel][ledx];
-						//Append the bit for this channel
-						//MSB first
-						uint8_t bit = (rawByte >> (7 - bitPosition)) & 0x01;
-						buffer[bufferIndex] = timingNumbers[bit];
-						bufferIndex++;
-					}
+			int startPos = state * bytesPerLEDChunk;
+			int bufferPos = 0;
+			for (int bytePos = 0; bytePos < bytesPerLEDChunk; bytePos++) {
+				uint8_t b = rawrgb[startPos + bytePos];
+				for (int bitPos = 0; bitPos < 8; bitPos++) {
+					uint8_t bit = (b >> bitPos) & 0x01;
+					buffer[bufferPos] = timingNumbers[bit];
+					bufferPos++;
 				}
 			}
+
 		}
 		state++;
 		state %= finalState;
