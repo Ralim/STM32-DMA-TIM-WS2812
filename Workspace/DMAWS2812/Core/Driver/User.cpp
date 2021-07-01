@@ -29,6 +29,8 @@ void userMain() {
 		leds.setLED(0, 0, HAL_GetTick() / 10, 0, 0);
 		leds.setLED(1, 0, 0, HAL_GetTick() / 10, 0);
 		leds.setLED(2, 0, 0, 0, HAL_GetTick() / 10);
+		leds.setLED(2, 1, HAL_GetTick() / 10, 0, 0);
+		leds.setLED(2, 2, 0, HAL_GetTick() / 10, 0);
 //		leds.setLED(2, 0, 0, HAL_GetTick() / 10, HAL_GetTick() / 10);
 		leds.setLED(3, 0, HAL_GetTick() / 10, HAL_GetTick() / 10,
 				HAL_GetTick() / 10);

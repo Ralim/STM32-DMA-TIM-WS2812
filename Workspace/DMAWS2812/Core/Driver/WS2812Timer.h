@@ -93,8 +93,6 @@ private:
 			memset(buffer, 0x00,
 					3/*RGB*/* timerChannels * 8/*bits*/* sizeof(uint16_t));	//a leds worth of bytes
 		} else {
-			//Buffer is 1,2,3,4, 1,2,3,4 _bits_
-			//But it is the _bits_ in that order
 			int startPos = state * bytesPerLEDChunk;
 			int bufferPos = 0;
 			for (int bytePos = 0; bytePos < bytesPerLEDChunk; bytePos++) {
