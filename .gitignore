@@ -1,0 +1,11 @@
+
+Workspace/.metadata/
+*.d
+Workspace/DMAWS2812/Debug/
+*.o
+*.mk
+*.su
+*.bin
+*.elf
+*.map
+*.list
